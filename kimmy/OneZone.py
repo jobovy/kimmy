@@ -133,7 +133,6 @@ class OneZone(object):
         # DO WE NEED TO ADD HYDROGEN EVOLUTION AS WELL? SMALL EFFECT?
         return numpy.log10(ZFe_t)-self._logZFe_solar
 
-    @_recalc_model
     def O_Fe(self,t):
         return self.O_H(t)-self.Fe_H(t)
 
