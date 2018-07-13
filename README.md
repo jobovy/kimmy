@@ -39,4 +39,8 @@ ts= numpy.linspace(0.001,10.,1001)*u.Gyr
 oz.eta= 1.
 plot(oz.Fe_H(ts),oz.O_Fe(ts))
 ```
-Keep in mind that once you change a parameter, it remains changed in the model. If you want to go back to the initial set of parameters that you used to initialize the instance, use ``oz.initial()``; if you want to go back to the default set of parameters, use ``oz.default()``.
+Keep in mind that once you change a parameter, it remains changed in the model. If you want to go back to the initial set of parameters that you used to initialize the instance, use ``oz.initial()``; if you want to go back to the default set of parameters, use ``oz.default()``. If you want to print the model you are using at any time, do
+```
+print(oz)
+```
+which prints a nicely formatted list of all of the model parameters.

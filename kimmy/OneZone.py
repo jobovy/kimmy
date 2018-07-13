@@ -81,6 +81,12 @@ class OneZone(object):
             self.__dict__[key]= _defaults[key]
         return None
 
+    def __str__(self):
+        out= ''
+        for key in sorted(_defaults.keys()):
+            out+= '{0:<10}:\t{1}\n'.format(key,self.__dict__[key])
+        return out[:-1]
+
     def _calc_solar(self):
         self._logZO_solar= -2.25+self.solar_O-8.69
         self._logZFe_solar= -2.93+self.solar_Fe-7.47
