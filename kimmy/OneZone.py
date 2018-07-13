@@ -11,17 +11,28 @@ def _recalc_model(method):
             args[0]._update_timescales()
             args[0]._calc_equilibrium()
             args[0]._current_model_hash= new_model_hash
+        new_solar_hash= args[0]._solar_hash()
+        if new_solar_hash != args[0]._current_solar_hash:
+            args[0]._calc_solar()
+            args[0]._current_solar_hash= new_solar_hash
         return method(*args,**kwargs)
     return wrapper   
+_defaults= {'eta':2.5,
+            'tau_SFE':   1.*u.Gyr,
+            'tau_SFH':   6.*u.Gyr,
+            'tau_Ia':    1.5*u.Gyr,
+            'min_dt_Ia': 0.15*u.Gyr,
+            'sfh':       'exp',
+            'mCC_O':     0.015,
+            'mCC_Fe':    0.0012,
+            'mIa_O':     0.,
+            'mIa_Fe':    0.0017,
+            'r':         0.4,
+            'solar_O':   8.69,
+            'solar_Fe':  7.47}
 class OneZone(object):
     """OneZone: simple one-zone chemical evolution models"""
-    def __init__(self,
-                 eta=2.5,tau_SFE=1.*u.Gyr,tau_SFH=6.*u.Gyr,
-                 tau_Ia=1.5*u.Gyr,min_dt_Ia=0.15*u.Gyr,
-                 sfh='exp',
-                 solar_O=8.69,solar_Fe=7.47,
-                 mCC_O=0.015,mCC_Fe=0.0012,mIa_O=0.,mIa_Fe=0.0017,
-                 r=0.4):
+    def __init__(self,**kwargs):
         """
         NAME:
            __init__
@@ -40,7 +51,6 @@ class OneZone(object):
               mIa_O= (0.) mass fraction of oxygen returned by SNe Ia (mass of O / stellar mass formed)
               mIa_Fe= (0.0017) mass fraction of iron returned by SNe Ia (mass of O / stellar mass formed)
               r= (0.4) mass recycling parameter (core-collapse SNe + AGB returns): amount of mass returned at abundances of star at birth
-           The next parameters are fixed for the instance:
               solar_O= (8.69) solar oxygen number density on the x_O = 12 + log10(X_O/H) scale
               solar_Fe=7.47 solar iron number density on the x_O = 12 + log10(X_O/H) scale
         OUTPUT:
@@ -48,31 +58,28 @@ class OneZone(object):
         HISTORY:
            2018-07-09 - Written - Bovy (UofT)
         """
-        # Store everything internally
-        self.eta= eta
-        self.tau_SFE= tau_SFE
-        self.tau_SFH= tau_SFH
-        self.tau_Ia= tau_Ia
-        self.min_dt_Ia= min_dt_Ia
-        self.sfh= sfh
-        self.mCC_O= mCC_O
-        self.mCC_Fe= mCC_Fe
-        self.mIa_O= mIa_O
-        self.mIa_Fe= mIa_Fe
-        self.r= r
-        # Set solar
-        self._solar_O= solar_O
-        self._solar_Fe= solar_Fe
-        self._calc_solar()
-        # Setup hash
+        self._init_params()
+        # Setup hash for storing models
         self._current_model_hash= None
+        self._current_solar_hash= None
+        return None
+
+    def _init_params(self,**kwargs):
+        for key in _defaults.keys():
+            self.__dict__[key]= kwargs.get(key,_defaults[key])
+        return None
+
+    def default(self):
+        for key in _defaults.keys():
+            self.__dict__[key]= _defaults[key]
         return None
 
     def _calc_solar(self):
-        self._logZO_solar= -2.25+self._solar_O-8.69
-        self._logZFe_solar= -2.93+self._solar_Fe-7.47
+        self._logZO_solar= -2.25+self.solar_O-8.69
+        self._logZFe_solar= -2.93+self.solar_Fe-7.47
         return None
 
+    # Equilibrium and model parameters
     def _update_timescales(self):
         # Update all relevant timescales for the model based on the current
         # model parameters
@@ -92,18 +99,6 @@ class OneZone(object):
             *self._tau_Ia_SFH/self.tau_Ia\
             *numpy.exp(self.min_dt_Ia/self.tau_SFH)
         return None
-
-    def _model_hash(self):
-        return hashlib.md5(numpy.array([self.eta,
-                                        self.tau_SFE.to(u.Gyr).value,
-                                        self.tau_SFH.to(u.Gyr).value,
-                                        self.tau_Ia.to(u.Gyr).value,
-                                        self.min_dt_Ia.to(u.Gyr).value,
-                                        self.mCC_O,
-                                        self.mCC_Fe,
-                                        self.mIa_O,
-                                        self.mIa_Fe,
-                                        self.r])).hexdigest()
 
     # Time evolution equations
     def _evol_CC(self,t):
@@ -158,4 +153,20 @@ class OneZone(object):
 
     def O_Fe(self,t):
         return self.O_H(t)-self.Fe_H(t)
+
+    def _model_hash(self):
+        return hashlib.md5(numpy.array([self.eta,
+                                        self.tau_SFE.to(u.Gyr).value,
+                                        self.tau_SFH.to(u.Gyr).value,
+                                        self.tau_Ia.to(u.Gyr).value,
+                                        self.min_dt_Ia.to(u.Gyr).value,
+                                        self.mCC_O,
+                                        self.mCC_Fe,
+                                        self.mIa_O,
+                                        self.mIa_Fe,
+                                        self.r])).hexdigest()
+
+    def _solar_hash(self):
+        return hashlib.md5(numpy.array([self.solar_O,
+                                        self.solar_Fe])).hexdigest()
 
