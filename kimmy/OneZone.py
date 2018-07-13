@@ -18,6 +18,7 @@ class OneZone(object):
     def __init__(self,
                  eta=2.5,tau_SFE=1.*u.Gyr,tau_SFH=6.*u.Gyr,
                  tau_Ia=1.5*u.Gyr,min_dt_Ia=0.15*u.Gyr,
+                 sfh='exp',
                  solar_O=8.69,solar_Fe=7.47,
                  mCC_O=0.015,mCC_Fe=0.0012,mIa_O=0.,mIa_Fe=0.0017,
                  r=0.4):
@@ -31,6 +32,7 @@ class OneZone(object):
               eta= (2.5) outflow mass loading factor as a fraction of SFR (float)
               tau_SFE= (1 Gyr) star-formation efficiency time scale (Quantity with units of time)
               tau_SFH= (6 Gyr) star-formation exponential decay time scale
+              sfh= ('exp') use an exponential ['exp'] or linear-exponential ['linexp'] star-formation history
               tau_Ia= (1.5 Gyr) SNe Ia exponential decay time scale
               min_dt_Ia= (150 Myr) minimum time delay for SNe Ia
               mCC_O= (0.015) mass fraction of oxygen returned by core-collapse SNe (mass of O / stellar mass formed)
@@ -52,6 +54,7 @@ class OneZone(object):
         self.tau_SFH= tau_SFH
         self.tau_Ia= tau_Ia
         self.min_dt_Ia= min_dt_Ia
+        self.sfh= sfh
         self.mCC_O= mCC_O
         self.mCC_Fe= mCC_Fe
         self.mIa_O= mIa_O
@@ -102,34 +105,54 @@ class OneZone(object):
                                         self.mIa_Fe,
                                         self.r])).hexdigest()
 
+    # Time evolution equations
+    def _evol_CC(self,t):
+        if self.sfh.lower() == 'exp':
+            return (1.-numpy.exp(-t/self._tau_dep_SFH))
+        else:
+            return (1.-self._tau_dep_SFH/t
+                       *(1.-numpy.exp(-t/self._tau_dep_SFH)))
+    
+    def _evol_Ia(self,t):
+        # Ia contribution
+        dt= t-self.min_dt_Ia
+        idx= dt > 0.
+        out= numpy.zeros(t.shape)
+        if self.sfh.lower() == 'exp':
+            out[idx]+= \
+                (1.-numpy.exp(-dt[idx]/self._tau_dep_SFH)
+                                -self._tau_dep_Ia/self._tau_dep_SFH
+                                *(numpy.exp(-dt[idx]/self._tau_Ia_SFH)
+                                  -numpy.exp(-dt[idx]/self._tau_dep_SFH)))\
+                                  .to(u.dimensionless_unscaled).value
+        else:
+            out[idx]+= \
+                (self._tau_Ia_SFH/t[idx]\
+                *(dt[idx]/self._tau_Ia_SFH+self._tau_dep_Ia/self._tau_dep_SFH
+                                         *numpy.exp(-dt[idx]/self._tau_Ia_SFH)
+                  +(1.+self._tau_dep_SFH/self._tau_Ia_SFH
+                    -self._tau_dep_Ia/self._tau_dep_SFH)\
+                      *numpy.exp(-dt[idx]/self._tau_dep_SFH)
+                  -(1.+self._tau_dep_SFH/self._tau_Ia_SFH)))\
+                  .to(u.dimensionless_unscaled).value
+        return out
+
     # Abundances
     @_recalc_model
     def O_H(self,t):
         # CCSNe contribution
-        ZO_t= self._ZO_CC_eq*(1.-numpy.exp(-t/self._tau_dep_SFH))
+        ZO_t= self._ZO_CC_eq*self._evol_CC(t)
         # Ia contribution
-        dt= t-self.min_dt_Ia
-        idx= dt > 0.
-        ZO_t[idx]+= self._ZO_Ia_eq*(1.-numpy.exp(-dt[idx]/self._tau_dep_SFH)
-                                    -self._tau_dep_Ia/self._tau_dep_SFH
-                                    *(numpy.exp(-dt[idx]/self._tau_Ia_SFH)
-                                      -numpy.exp(-dt[idx]/self._tau_dep_SFH)))
+        ZO_t+= self._ZO_Ia_eq*self._evol_Ia(t)
         # DO WE NEED TO ADD HYDROGEN EVOLUTION AS WELL? SMALL EFFECT?
         return numpy.log10(ZO_t)-self._logZO_solar
 
     @_recalc_model
     def Fe_H(self,t):
-        self._update_timescales()
-        self._calc_equilibrium()
         # CCSNe contribution
-        ZFe_t= self._ZFe_CC_eq*(1.-numpy.exp(-t/self._tau_dep_SFH))
+        ZFe_t= self._ZFe_CC_eq*self._evol_CC(t)
         # Ia contribution
-        dt= t-self.min_dt_Ia
-        idx= dt > 0.
-        ZFe_t[idx]+= self._ZFe_Ia_eq*(1.-numpy.exp(-dt[idx]/self._tau_dep_SFH)
-                                      -self._tau_dep_Ia/self._tau_dep_SFH
-                                      *(numpy.exp(-dt[idx]/self._tau_Ia_SFH)
-                                       -numpy.exp(-dt[idx]/self._tau_dep_SFH)))
+        ZFe_t+= self._ZFe_Ia_eq*self._evol_Ia(t)
         # DO WE NEED TO ADD HYDROGEN EVOLUTION AS WELL? SMALL EFFECT?
         return numpy.log10(ZFe_t)-self._logZFe_solar
 
