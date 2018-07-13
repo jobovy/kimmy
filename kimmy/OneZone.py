@@ -58,15 +58,22 @@ class OneZone(object):
         HISTORY:
            2018-07-09 - Written - Bovy (UofT)
         """
-        self._init_params()
+        self._initialize_params(**kwargs)
         # Setup hash for storing models
         self._current_model_hash= None
         self._current_solar_hash= None
         return None
 
-    def _init_params(self,**kwargs):
+    def _initialize_params(self,**kwargs):
+        self._init_params= {} # To store initial
         for key in _defaults.keys():
             self.__dict__[key]= kwargs.get(key,_defaults[key])
+            self._init_params[key]= kwargs.get(key,_defaults[key])
+        return None
+
+    def initial(self):
+        for key in _defaults.keys():
+            self.__dict__[key]= self._init_params[key]
         return None
 
     def default(self):
