@@ -2,6 +2,8 @@
 
 Galactic chemical evolution in python
 
+[![Binder](http://mybinder.org/badge.svg)]((https://mybinder.org/v2/gh/jobovy/kimmy/master)
+
 ## Overview
 
 ``kimmy`` contains simple tools to study chemical evolution in galaxies.
@@ -22,6 +24,8 @@ python setup.py install --user
 ```
 
 ## Usage
+
+For an example of usage, see the [example notebook](kimmy-example.ipynb). You can also launch a [Binder](https://mybinder.org/v2/gh/jobovy/kimmy/master) instance and directly play around with this notebook.
 
 Currently, the only implemented feature is a simple one-zone chemical model with two elements ``O`` (for oxygen) and ``Fe`` (for iron). Initialize this model as
 ```
