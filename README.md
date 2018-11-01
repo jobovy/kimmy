@@ -2,7 +2,7 @@
 
 Galactic chemical evolution in python
 
-[![Binder](http://mybinder.org/badge.svg)]((https://mybinder.org/v2/gh/jobovy/kimmy/master)
+[![Binder](http://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/jobovy/kimmy/master)
 
 ## Overview
 
