@@ -28,6 +28,8 @@ _defaults= {'eta':2.5,
             'mIa_O':     0.,
             'mIa_Fe':    0.0017,
             'r':         0.4,
+            'tau_Ia_2':  None,
+            'frac_Ia_2': 0.522,
             'solar_O':   8.69,
             'solar_Fe':  7.47}
 class OneZone(object):
@@ -53,10 +55,13 @@ class OneZone(object):
               r= (0.4) mass recycling parameter (core-collapse SNe + AGB returns): amount of mass returned at abundances of star at birth
               solar_O= (8.69) solar oxygen number density on the x_O = 12 + log10(X_O/H) scale
               solar_Fe=7.47 solar iron number density on the x_O = 12 + log10(X_O/H) scale
+              tau_Ia_2= (None) SNe Ia exponential decay time scale for second Ia component (useful when approximating t^{-1.1} delay time distribution)
+              frac_Ia_2= (0.522) fraction of Ias coming from the second decay time scale (useful when approximating t^{-1.1} delay time distribution)
         OUTPUT:
            instance
         HISTORY:
            2018-07-09 - Written - Bovy (UofT)
+           2018-11-01 - Added second Ia component for approximxating t^{-1.1} decay distribution - Bovy (UofT)
         """
         self._initialize_params(**kwargs)
         # Setup hash for storing models
@@ -100,6 +105,9 @@ class OneZone(object):
         self._tau_dep_SFH= 1./(1./self._tau_dep-1./self.tau_SFH)
         self._tau_dep_Ia= 1./(1./self._tau_dep-1./self.tau_Ia)
         self._tau_Ia_SFH= 1./(1./self.tau_Ia-1./self.tau_SFH)
+        if not self.tau_Ia_2 is None:
+            self._tau_dep_Ia_2= 1./(1./self._tau_dep-1./self.tau_Ia_2)
+            self._tau_Ia_SFH_2= 1./(1./self.tau_Ia_2-1./self.tau_SFH)
         return None
 
     def _calc_equilibrium(self):
@@ -111,6 +119,17 @@ class OneZone(object):
         self._ZFe_Ia_eq= self.mIa_Fe*self._tau_dep_SFH/self.tau_SFE\
             *self._tau_Ia_SFH/self.tau_Ia\
             *numpy.exp(self.min_dt_Ia/self.tau_SFH)
+        if not self.tau_Ia_2 is None:
+            self._ZO_Ia_eq*= (1.-self.frac_Ia_2)
+            self._ZFe_Ia_eq*= (1.-self.frac_Ia_2)
+            self._ZO_Ia_eq_2= self.frac_Ia_2*self.mIa_O\
+                *self._tau_dep_SFH/self.tau_SFE\
+                *self._tau_Ia_SFH_2/self.tau_Ia_2\
+                *numpy.exp(self.min_dt_Ia/self.tau_SFH)
+            self._ZFe_Ia_eq_2= self.frac_Ia_2*self.mIa_Fe\
+                *self._tau_dep_SFH/self.tau_SFE\
+                *self._tau_Ia_SFH_2/self.tau_Ia_2\
+                *numpy.exp(self.min_dt_Ia/self.tau_SFH)
         return None
 
     # Time evolution equations
@@ -121,7 +140,7 @@ class OneZone(object):
             return (1.-self._tau_dep_SFH/t
                        *(1.-numpy.exp(-t/self._tau_dep_SFH)))
     
-    def _evol_Ia(self,t):
+    def _evol_Ia(self,t,tau_dep_Ia,tau_Ia_SFH):
         # Ia contribution
         dt= t-self.min_dt_Ia
         idx= dt > 0.
@@ -129,19 +148,19 @@ class OneZone(object):
         if self.sfh.lower() == 'exp':
             out[idx]+= \
                 (1.-numpy.exp(-dt[idx]/self._tau_dep_SFH)
-                                -self._tau_dep_Ia/self._tau_dep_SFH
-                                *(numpy.exp(-dt[idx]/self._tau_Ia_SFH)
+                                -tau_dep_Ia/self._tau_dep_SFH
+                                *(numpy.exp(-dt[idx]/tau_Ia_SFH)
                                   -numpy.exp(-dt[idx]/self._tau_dep_SFH)))\
                                   .to(u.dimensionless_unscaled).value
         else:
             out[idx]+= \
-                (self._tau_Ia_SFH/t[idx]\
-                *(dt[idx]/self._tau_Ia_SFH+self._tau_dep_Ia/self._tau_dep_SFH
-                                         *numpy.exp(-dt[idx]/self._tau_Ia_SFH)
-                  +(1.+self._tau_dep_SFH/self._tau_Ia_SFH
-                    -self._tau_dep_Ia/self._tau_dep_SFH)\
+                (tau_Ia_SFH/t[idx]\
+                *(dt[idx]/tau_Ia_SFH+tau_dep_Ia/self._tau_dep_SFH
+                                         *numpy.exp(-dt[idx]/tau_Ia_SFH)
+                  +(1.+self._tau_dep_SFH/tau_Ia_SFH
+                    -tau_dep_Ia/self._tau_dep_SFH)\
                       *numpy.exp(-dt[idx]/self._tau_dep_SFH)
-                  -(1.+self._tau_dep_SFH/self._tau_Ia_SFH)))\
+                  -(1.+self._tau_dep_SFH/tau_Ia_SFH)))\
                   .to(u.dimensionless_unscaled).value
         return out
 
@@ -151,7 +170,11 @@ class OneZone(object):
         # CCSNe contribution
         ZO_t= self._ZO_CC_eq*self._evol_CC(t)
         # Ia contribution
-        ZO_t+= self._ZO_Ia_eq*self._evol_Ia(t)
+        ZO_t+= self._ZO_Ia_eq*self._evol_Ia(t,
+                                            self._tau_dep_Ia,self._tau_Ia_SFH)
+        if not self.tau_Ia_2 is None:
+            ZO_t+= self._ZO_Ia_eq_2*self._evol_Ia(t,
+                                         self._tau_dep_Ia_2,self._tau_Ia_SFH_2)
         # DO WE NEED TO ADD HYDROGEN EVOLUTION AS WELL? SMALL EFFECT?
         return numpy.log10(ZO_t)-self._logZO_solar
 
@@ -160,7 +183,11 @@ class OneZone(object):
         # CCSNe contribution
         ZFe_t= self._ZFe_CC_eq*self._evol_CC(t)
         # Ia contribution
-        ZFe_t+= self._ZFe_Ia_eq*self._evol_Ia(t)
+        ZFe_t+= self._ZFe_Ia_eq*self._evol_Ia(t,
+                                             self._tau_dep_Ia,self._tau_Ia_SFH)
+        if not self.tau_Ia_2 is None:
+            ZFe_t+= self._ZFe_Ia_eq_2*self._evol_Ia(t,
+                                         self._tau_dep_Ia_2,self._tau_Ia_SFH_2)
         # DO WE NEED TO ADD HYDROGEN EVOLUTION AS WELL? SMALL EFFECT?
         return numpy.log10(ZFe_t)-self._logZFe_solar
 
@@ -177,7 +204,9 @@ class OneZone(object):
                                         self.mCC_Fe,
                                         self.mIa_O,
                                         self.mIa_Fe,
-                                        self.r])).hexdigest()
+                                        self.r,
+              0 if self.tau_Ia_2 is None else self.tau_Ia_2.to(u.Gyr).value,
+                                        self.frac_Ia_2])).hexdigest()
 
     def _solar_hash(self):
         return hashlib.md5(numpy.array([self.solar_O,
