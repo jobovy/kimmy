@@ -37,7 +37,12 @@ then for example compute the evolution of the default model and plot the [O/Fe] 
 ts= numpy.linspace(0.001,10.,1001)*u.Gyr
 plot(oz.Fe_H(ts),oz.O_Fe(ts))
 ```
-You can directly update the main parameters of the model and the model will be re-computed. For example, to set the outflow mass-loading parameter to one and plot the [O/Fe] vs. [Fe/H] sequence, do
+To compute the distribution of [Fe/H], do for example,
+```
+FeHs= numpy.linspace(-1.525,1.225,56)
+FeH_dist= [oz.Fe_H_DF(f) for f in FeHs]
+```
+and similar for the distribution of [O/H] and [O/Fe]. You can directly update the main parameters of the model and the model will be re-computed. For example, to set the outflow mass-loading parameter to one and plot the [O/Fe] vs. [Fe/H] sequence, do
 ```
 ts= numpy.linspace(0.001,10.,1001)*u.Gyr
 oz.eta= 1.
