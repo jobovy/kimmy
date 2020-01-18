@@ -1,6 +1,7 @@
 # OneZone.py: simple one-zone chemical evolution models
 from functools import wraps
 import numpy
+from scipy import optimize
 import hashlib
 from astropy import units as u
 def _recalc_model(method):
@@ -193,6 +194,49 @@ class OneZone(object):
 
     def O_Fe(self,t):
         return self.O_H(t)-self.Fe_H(t)
+
+    # MDFs of [Fe/H], [O/H], [O/Fe]
+    def _dX_dt(self,t,func):
+        if False:
+            pass
+        else:
+            dt= 1e-8*u.Gyr
+            return (func(t+dt)-func(t))/dt.to_value(u.Gyr)
+            
+    def dFe_H_dt(self,t):
+        return self._dX_dt(t,self.Fe_H)
+
+    def dO_H_dt(self,t):
+        return self._dX_dt(t,self.O_H)
+
+    def dO_Fe_dt(self,t):
+        return self._dX_dt(t,self.O_Fe)
+
+    def _time(self,x,xfunc):
+        # Get the time at which xfunc reaches x (e.g., Fe/H(t) = x)
+        try:
+            return optimize.brentq(lambda t: x-xfunc(t*u.Gyr),1e-8,12.5)
+        except ValueError:
+            return numpy.NaN
+
+    def _XDF(self,x,func):
+        t= self._time(x,func)
+        if numpy.isnan(t): return 0.
+        if self.sfh.lower() == 'exp':
+            out= numpy.exp(-t*u.Gyr/self.tau_SFH)
+        else:
+            out= t*numpy.exp(-t*u.Gyr/self.tau_SFH)
+        out/= self._dX_dt(t*u.Gyr,func)
+        return out
+
+    def Fe_H_DF(self,FeH):
+        return self._XDF(FeH,self.Fe_H)
+
+    def O_H_DF(self,OH):
+        return self._XDF(OH,self.O_H)
+
+    def O_Fe_DF(self,OFe):
+        return -self._XDF(OFe,self.O_Fe)
 
     def _model_hash(self):
         return hashlib.md5(numpy.array([self.eta,
