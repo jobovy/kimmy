@@ -8,7 +8,7 @@ with open('README.md') as dfile:
         long_description+= line
 
 setup(name='kimmy',
-      version='0.1',
+      version='0.2.dev',
       description='Chemical evolution in galaxies',
       long_description=long_description,
       long_description_content_type='text/markdown',     
