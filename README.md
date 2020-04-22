@@ -2,6 +2,7 @@
 
 Galactic chemical evolution in python
 
+[![image](http://img.shields.io/pypi/v/kimmy.svg)](https://pypi.python.org/pypi/kimmy/)
 [![Binder](http://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/jobovy/kimmy/master)
 
 ## Overview
