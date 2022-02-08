@@ -30,7 +30,7 @@ python setup.py install --user
 
 ## Usage
 
-For an example of usage, see the [example notebook](kimmy-example.ipynb). You can also launch a [Binder](https://mybinder.org/v2/gh/jobovy/kimmy/master) instance and directly play around with this notebook.
+For an example of usage, see the [example notebook](kimmy-example.ipynb). You can also launch a [Binder](https://mybinder.org/v2/gh/jobovy/kimmy/master) instance and directly play around with this notebook. _Or_ you can use [this](kimmy-example-pyodide.ipynb) [pyodide](https://github.com/pyodide/pyodide)-compatible version of the same notebook in [JupyterLite](https://github.com/jupyterlite/jupyterlite).
 
 Currently, the only implemented feature is a simple one-zone chemical model with two elements ``O`` (for oxygen) and ``Fe`` (for iron). Initialize this model as
 ```
